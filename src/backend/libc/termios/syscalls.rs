@@ -145,17 +145,10 @@ pub(crate) fn tcsetattr(
     {
         use crate::termios::speed;
         use crate::utils::default_array;
-        use linux_raw_sys::general::{termios2, BOTHER, CBAUD, IBSHIFT};
+        use c::{termios2, BOTHER, CBAUD, IBSHIFT};
 
-        #[cfg(not(any(target_arch = "sparc", target_arch = "sparc64")))]
-        use linux_raw_sys::ioctl::{TCSETS, TCSETS2};
-
-        // linux-raw-sys' ioctl-generation script for sparc isn't working yet,
-        // so as a temporary workaround, declare these manually.
-        #[cfg(any(target_arch = "sparc", target_arch = "sparc64"))]
-        const TCSETS: u32 = 0x8024_5409;
-        #[cfg(any(target_arch = "sparc", target_arch = "sparc64"))]
-        const TCSETS2: u32 = 0x802c_540d;
+        const TCSETS: u32 = c::TCSETS as u32;
+        const TCSETS2: u32 = c::TCSETS2 as u32;
 
         // Translate from `optional_actions` into an ioctl request code. On
         // MIPS, `optional_actions` already has `TCGETS` added to it.

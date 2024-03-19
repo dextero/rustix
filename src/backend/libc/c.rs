@@ -78,9 +78,9 @@ pub(crate) const ETH_P_MCTP: c_int = linux_raw_sys::if_ether::ETH_P_MCTP as _;
 pub(crate) const SIGEMT: c_int = linux_raw_sys::general::SIGEMT as _;
 
 // TODO: Upstream these.
-#[cfg(all(linux_kernel, feature = "termios"))]
+#[cfg(all(linux_kernel, feature = "linux-raw-sys", feature = "termios"))]
 pub(crate) const IUCLC: tcflag_t = linux_raw_sys::general::IUCLC as _;
-#[cfg(all(linux_kernel, feature = "termios"))]
+#[cfg(all(linux_kernel, feature = "linux-raw-sys", feature = "termios"))]
 pub(crate) const XCASE: tcflag_t = linux_raw_sys::general::XCASE as _;
 
 #[cfg(target_os = "aix")]
