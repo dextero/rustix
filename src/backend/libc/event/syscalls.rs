@@ -185,7 +185,7 @@ pub(crate) fn port_send(
 #[cfg(not(any(windows, target_os = "redox", target_os = "wasi")))]
 pub(crate) fn pause() {
     let r = unsafe { libc::pause() };
-    let errno = libc_errno::errno().0;
+    let errno = errno::errno().0;
     debug_assert_eq!(r, -1);
     debug_assert_eq!(errno, libc::EINTR);
 }

@@ -896,7 +896,7 @@ pub(crate) fn utimensat(
             -1 => Err(io::Errno::IO),
             0 => {
                 if c::fchdir(borrowed_fd(dirfd)) != 0 {
-                    let code = match libc_errno::errno().0 {
+                    let code = match errno::errno().0 {
                         c::EACCES => 2,
                         c::ENOTDIR => 3,
                         _ => 1,
@@ -919,7 +919,7 @@ pub(crate) fn utimensat(
                 {
                     // Translate expected `errno` codes into ad-hoc integer
                     // values suitable for exit statuses.
-                    let code = match libc_errno::errno().0 {
+                    let code = match errno::errno().0 {
                         c::EACCES => 2,
                         c::ENOTDIR => 3,
                         c::EPERM => 4,

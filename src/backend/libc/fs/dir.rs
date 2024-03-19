@@ -36,7 +36,7 @@ use c::readdir as libc_readdir;
 use c::readdir64 as libc_readdir;
 use core::fmt;
 use core::ptr::NonNull;
-use libc_errno::{errno, set_errno, Errno};
+use errno::{errno, set_errno, Errno};
 
 /// `DIR*`
 pub struct Dir {

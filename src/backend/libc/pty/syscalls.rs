@@ -76,7 +76,7 @@ pub(crate) fn ptsname(fd: BorrowedFd<'_>, mut buffer: Vec<u8>) -> io::Result<CSt
                         std::ptr::copy_nonoverlapping(name.as_ptr(), buffer.as_mut_ptr(), len + 1);
                         0
                     }
-                    _ => libc_errno::errno().0,
+                    _ => errno::errno().0,
                 }
             }
         };
