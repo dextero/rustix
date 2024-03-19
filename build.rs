@@ -99,6 +99,9 @@ fn main() {
         // Use the libc backend.
         use_feature("libc");
     } else {
+        if var("CARGO_FEATURE_LINUX_RAW_SYS").is_err() {
+            panic!("Must select either --features=linux-raw-sys or --features=use-libc. When in doubt, use --features=linux-raw-sys.");
+        }
         // Use the linux_raw backend.
         use_feature("linux_raw");
         if rustix_use_experimental_asm {

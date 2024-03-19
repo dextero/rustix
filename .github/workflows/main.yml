@@ -146,13 +146,14 @@ jobs:
     - uses: ./.github/actions/install-rust
       with:
         toolchain: ${{ matrix.rust }}
-    - run: cargo check --workspace --release --no-default-features -vv
+    # Either linux-raw-sys or use-libc needs to be enabled.
+    - run: cargo check --workspace --release --no-default-features --features linux-raw-sys -vv
     - run: cargo check --workspace --release --no-default-features --features use-libc -vv
     - run: cargo check --workspace --release --no-default-features --features all-apis -vv
     - run: cargo check --workspace --release --no-default-features --features all-apis,use-libc -vv
     - run: cargo check --workspace --release --no-default-features --features all-apis,alloc -vv
     - run: cargo check --workspace --release --no-default-features --features all-apis,use-libc,alloc -vv
-    - run: cargo check --workspace --release --no-default-features --features time -vv
+    - run: cargo check --workspace --release --no-default-features --features time,linux-raw-sys -vv
     - run: cargo check --workspace --release --no-default-features --features time,use-libc -vv
     - run: rustup component add rust-src
     - run: cargo check --workspace --release --no-default-features --target=i686-unknown-linux-gnu -Zbuild-std -vv
@@ -505,6 +506,142 @@ jobs:
         RUST_BACKTRACE: full
         MACOSX_DEPLOYMENT_TARGET: 10.7
         MACOSX_SDK_VERSION: 10.7
+
+  test_use_libc_no_linux_raw_sys:
+    name: Test use-libc without linux-raw-sys
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        build: [ubuntu, i686-linux, aarch64-linux, powerpc64le-linux, riscv64-linux, arm-linux]
+        include:
+          - build: ubuntu
+            os: ubuntu-latest
+            rust: stable
+          - build: i686-linux
+            os: ubuntu-latest
+            rust: stable
+            target: i686-unknown-linux-gnu
+            gcc_package: gcc-i686-linux-gnu
+            gcc: i686-linux-gnu-gcc
+            libc_package: libc-dev-i386-cross
+          - build: aarch64-linux
+            os: ubuntu-latest
+            rust: stable
+            target: aarch64-unknown-linux-gnu
+            gcc_package: gcc-aarch64-linux-gnu
+            gcc: aarch64-linux-gnu-gcc
+            qemu: qemu-aarch64
+            qemu_args: -L /usr/aarch64-linux-gnu
+            qemu_target: aarch64-linux-user
+          - build: powerpc64le-linux
+            os: ubuntu-latest
+            rust: stable
+            target: powerpc64le-unknown-linux-gnu
+            gcc_package: gcc-powerpc64le-linux-gnu
+            gcc: powerpc64le-linux-gnu-gcc
+            qemu: qemu-ppc64le
+            qemu_args: -L /usr/powerpc64le-linux-gnu
+            qemu_target: ppc64le-linux-user
+          - build: riscv64-linux
+            os: ubuntu-latest
+            rust: stable
+            target: riscv64gc-unknown-linux-gnu
+            gcc_package: gcc-riscv64-linux-gnu
+            gcc: riscv64-linux-gnu-gcc
+            qemu: qemu-riscv64
+            qemu_args: -L /usr/riscv64-linux-gnu
+            qemu_target: riscv64-linux-user
+          - build: arm-linux
+            os: ubuntu-latest
+            rust: stable
+            target: armv7-unknown-linux-gnueabihf
+            gcc_package: gcc-arm-linux-gnueabihf
+            gcc: arm-linux-gnueabihf-gcc
+            qemu: qemu-arm
+            qemu_args: -L /usr/arm-linux-gnueabihf
+            qemu_target: arm-linux-user
+    env:
+      # -D warnings is commented out in our install-rust action; re-add it here.
+      # TODO: Reenable this once we can remove the redundant `Vec` imports.
+      #RUSTFLAGS: -D warnings -D elided-lifetimes-in-paths
+      QEMU_BUILD_VERSION: 8.1.2
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: true
+    - uses: ./.github/actions/install-rust
+      with:
+        toolchain: ${{ matrix.rust }}
+
+    - name: Configure Cargo target
+      run: |
+        echo CARGO_BUILD_TARGET=${{ matrix.target }} >> $GITHUB_ENV
+        rustup target add ${{ matrix.target }}
+      if: matrix.target != ''
+
+    - uses: actions/cache@v4
+      with:
+        path: ${{ runner.tool_cache }}/qemu
+        key: qemu-${{ matrix.target }}-${{ env.QEMU_BUILD_VERSION }}-patched
+      if: matrix.target != '' && matrix.os == 'ubuntu-latest'
+
+    - name: Install cross-compilation tools
+      run: |
+        set -ex
+        sudo apt-get update
+        sudo apt-get install -y ${{ matrix.gcc_package }} ninja-build
+        upcase=$(echo ${{ matrix.target }} | awk '{ print toupper($0) }' | sed 's/-/_/g')
+        echo CARGO_TARGET_${upcase}_LINKER=${{ matrix.gcc }} >> $GITHUB_ENV
+      if: matrix.gcc_package != '' && matrix.os == 'ubuntu-latest'
+
+    - name: Install cross-compilation libraries
+      run: |
+        set -ex
+        sudo apt-get update
+        sudo apt-get install -y ${{ matrix.libc_package }}
+      if: matrix.libc_package != '' && matrix.os == 'ubuntu-latest'
+
+    - name: Install qemu
+      run: |
+        set -ex
+
+        upcase=$(echo ${{ matrix.target }} | awk '{ print toupper($0) }' | sed 's/-/_/g')
+        echo CARGO_TARGET_${upcase}_RUNNER=${{ runner.tool_cache }}/qemu/bin/${{ matrix.qemu }} ${{ matrix.qemu_args }} >> $GITHUB_ENV
+
+        # See if qemu is already in the cache
+        if [ -f ${{ runner.tool_cache }}/qemu/bin/${{ matrix.qemu }} ]; then
+          exit 0
+        fi
+
+        # Download and build qemu from source since the most recent release is
+        # way faster at arm emulation than the current version github actions'
+        # ubuntu image uses. Disable as much as we can to get it to build
+        # quickly.
+        cd
+        curl https://download.qemu.org/qemu-$QEMU_BUILD_VERSION.tar.xz | tar xJf -
+        cd qemu-$QEMU_BUILD_VERSION
+        patch -p1 < $GITHUB_WORKSPACE/ci/translate-errno.patch
+        patch -p1 < $GITHUB_WORKSPACE/ci/getsockopt-timeouts.patch
+        patch -p1 < $GITHUB_WORKSPACE/ci/s390x-stat-have-nsec.patch
+        patch -p1 < $GITHUB_WORKSPACE/ci/aarch64-o-largefile.patch
+        patch -p1 < $GITHUB_WORKSPACE/ci/tcgets2-tcsets2.patch
+        patch -p1 < $GITHUB_WORKSPACE/ci/more-sockopts.patch
+        ./configure --target-list=${{ matrix.qemu_target }} --prefix=${{ runner.tool_cache }}/qemu --disable-tools --disable-slirp --disable-fdt --disable-capstone --disable-docs
+        ninja -C build install
+      if: matrix.qemu != '' && matrix.os == 'ubuntu-latest'
+
+    - name: Install cargo-tree
+      run: |
+        cargo install cargo-tree
+
+    # build all the features that can work without the linux-raw-sys dependency
+    # make sure none of them make linux-raw-sys appear in the dependency tree
+    - run: |
+        set -e
+        cargo test --verbose --no-default-features --features=use-libc,use-libc-auxv,std,event,mount,time,pipe,rand,stdio,mm,shm,param,pty,termios,fs --release --workspace -- --nocapture
+        [[ -z "$(cargo tree --no-default-features --features=use-libc,use-libc-auxv,std,event,mount,time,pipe,rand,stdio,mm,shm,param,pty,termios,fs --edges no-dev | grep linux-raw-sys)" ]] || false
+      env:
+        RUST_BACKTRACE: full
 
   test_use_libc:
     name: Test use-libc
