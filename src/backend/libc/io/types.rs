@@ -17,7 +17,7 @@ bitflags! {
     }
 }
 
-#[cfg(linux_kernel)]
+#[cfg(all(linux_kernel, feature = "linux-raw-sys"))]
 bitflags! {
     /// `RWF_*` constants for use with [`preadv2`] and [`pwritev2`].
     ///
