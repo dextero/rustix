@@ -47,9 +47,9 @@ mod memfd_create;
 #[cfg(linux_kernel)]
 #[cfg(feature = "fs")]
 mod mount;
-#[cfg(linux_kernel)]
+#[cfg(all(linux_kernel, feature = "linux-raw-sys"))]
 mod openat2;
-#[cfg(linux_kernel)]
+#[cfg(all(linux_kernel, feature = "linux-raw-sys"))]
 mod raw_dir;
 mod seek_from;
 #[cfg(target_os = "linux")]
@@ -115,9 +115,9 @@ pub use memfd_create::memfd_create;
 #[cfg(linux_kernel)]
 #[cfg(feature = "fs")]
 pub use mount::*;
-#[cfg(linux_kernel)]
+#[cfg(all(linux_kernel, feature = "linux-raw-sys"))]
 pub use openat2::openat2;
-#[cfg(linux_kernel)]
+#[cfg(all(linux_kernel, feature = "linux-raw-sys"))]
 pub use raw_dir::{RawDir, RawDirEntry};
 pub use seek_from::SeekFrom;
 #[cfg(target_os = "linux")]
