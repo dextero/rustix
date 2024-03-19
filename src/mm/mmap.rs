@@ -32,7 +32,7 @@ impl MapFlags {
     /// let f = MapFlags::hugetlb_with_size_log2(30).unwrap();
     /// assert_eq!(f, MapFlags::HUGETLB | MapFlags::HUGE_1GB);
     /// ```
-    #[cfg(linux_kernel)]
+    #[cfg(all(linux_kernel, feature = "linux-raw-sys"))]
     pub const fn hugetlb_with_size_log2(huge_page_size_log2: u32) -> Option<Self> {
         use linux_raw_sys::general::{MAP_HUGETLB, MAP_HUGE_SHIFT};
         if 16 <= huge_page_size_log2 && huge_page_size_log2 <= 63 {
